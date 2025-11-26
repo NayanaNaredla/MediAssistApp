@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>MediAssist — Complete</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    :root{--primary:#076be8;--muted:#6b7280;--bg:#f6fbff;--card:#fff}
+    *{box-sizing:border-box}
+    body{font-family:Inter,Segoe UI,Tahoma,sans-serif;margin:0;background:var(--bg);color:#111}
+    .screen{display:none;padding:18px;min-height:100vh}
+    .screen.active{display:block}
+    h1,h2{color:var(--primary)}
+    input,select,button,textarea{width:86%;max-width:680px;padding:10px;margin:8px 0;border-radius:10px;border:1px solid #d7e1ee;font-size:15px}
+    textarea{min-height:120px;resize:vertical}
+    .btn-primary{background:var(--primary);color:#fff;border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:600}
+    .btn-ghost{background:#fff;color:var(--primary);border:1px solid var(--primary);padding:8px 12px;border-radius:8px;cursor:pointer}
+    .btn-back{background:#6b7280;color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .small{color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px;align-items:start}
+    .card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 10px 30px rgba(11,22,40,0.06);cursor:pointer;text-align:left;min-height:120px}
+    .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:12px}
+    .gallery-item{background:var(--card);border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(11,22,40,0.06);text-align:left}
+    .gallery-item img{width:100%;height:140px;object-fit:cover;display:block}
+    #map{height:420px;width:90%;max-width:980px;margin:12px auto;border-radius:12px}
+    .hospital-row{background:#fff;margin:10px auto;padding:12px;max-width:980px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.06);display:flex;justify-content:space-between;align-items:center}
+    .hospital-info{max-width:72%}
+    .hospital-actions{display:flex;gap:8px;align-items:center}
+    .tag{display:inline-block;padding:4px 8px;border-radius:8px;margin-left:8px;font-weight:600}
+    .times{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+    .time-pill{background:#fbfdff;padding:6px 10px;border-radius:8px;box-shadow:0 3px 10px rgba(11,22,40,0.03);display:flex;gap:8px;align-items:center}
+    .popup{position:fixed;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:2000}
+    .popup .content{background:var(--card);padding:16px;border-radius:12px;width:92%;max-width:460px;text-align:left}
+    .hidden{display:none}
+    @media(max-width:480px){input,select,button,textarea{width:94%}.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- WELCOME -->
+  <div id="screen-welcome" class="screen active">
+    <h1>MediAssist</h1>
+    <h3>Where Every Pulse Tells a Story</h3>
+    <p class="small">Prescription, Reminders & Smart Doctor Finder</p>
+    <button class="btn-primary" onclick="showScreen('screen-signup')">Get Started</button>
+  </div>
+
+  <!-- SIGNUP -->
+  <div id="screen-signup" class="screen">
+    <h2>Create Account</h2>
+    <form onsubmit="handleSignup(event)">
+      <input id="suFull" placeholder="Full name" required>
+      <input id="suEmail" type="email" placeholder="Email" required>
+      <input id="suPass" type="password" placeholder="Password" required>
+      <input id="suConf" type="password" placeholder="Confirm password" required>
+      <button class="btn-primary" type="submit">Sign up & Enter</button>
+    </form>
+    <p class="small">Have an account? <a href="#" onclick="showScreen('screen-login')">Login</a></p>
+    <button class="btn-back" onclick="showScreen('screen-welcome')">Back</button>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="screen-login" class="screen">
+    <h2>Login</h2>
+    <form onsubmit="handleLogin(event)">
+      <input id="liEmail" type="email" placeholder="Email" required>
+      <input id="liPass" type="password" placeholder="Password" required>
+      <button class="btn-primary" type="submit">Login</button>
+    </form>
+    <p class="small"><a href="#" onclick="showScreen('screen-signup')">Create account</a></p>
+    <button class="btn-back" onclick="showScreen('screen-welcome')">Back</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="screen-dashboard" class="screen">
+    <h2>Dashboard</h2>
+    <p id="dashUser" class="small"></p>
+    <div class="grid">
+      <div class="card" onclick="showScreen('screen-symptom')">
+        <img src="https://cdn-icons-png.flaticon.com/512/3437/3437399.png" style="width:56px;height:56px">
+        <h3>Doctor Assistance</h3>
+        <p class="small">Describe symptoms → AI suggests department → finds hospitals (20 km)</p>
+      </div>
+      <div class="card" onclick="showScreen('screen-prescription')">
+        <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" style="width:56px;height:56px">
+        <h3>Prescription Management</h3>
+        <p class="small">Upload, save & edit</p>
+      </div>
+      <div class="card" onclick="showScreen('screen-reminders'); renderReminders();">
+        <img src="https://cdn-icons-png.flaticon.com/512/2913/2913994.png" style="width:56px;height:56px">
+        <h3>Reminders 🔔</h3>
+        <p class="small">Voice alerts & snooze</p>
+      </div>
+      <div class="card" onclick="showScreen('screen-saved'); renderPrescriptions();">
+        <img src="https://cdn-icons-png.flaticon.com/512/681/681494.png" style="width:56px;height:56px">
+        <h3>Saved Prescriptions</h3>
+        <p class="small">Gallery & details</p>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn-ghost" onclick="showScreen('screen-account')">Account Settings</button>
+      <button class="btn-back" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- SYMPTOM CHECKER -->
+  <div id="screen-symptom" class="screen">
+    <h2>Symptom Checker</h2>
+    <p class="small">Type or speak symptoms. The app will suggest a department and automatically search hospitals near you.</p>
+    <textarea id="symptomInput" placeholder="Describe your symptoms..."></textarea><br>
+    <button class="btn-primary" onclick="analyzeSymptoms()">Analyze Symptoms</button>
+    <button class="btn-primary" onclick="startSymptomVoice()">🎙️ Speak</button>
+    <button class="btn-back" onclick="showScreen('screen-dashboard')">Back</button>
+    <div id="symptomResult" style="margin-top:12px;font-weight:600;color:var(--primary)"></div>
+  </div>
+
+  <!-- DOCTOR LIST -->
+  <div id="screen-doctors" class="screen">
+    <h2>Doctor Assistance — Results</h2>
+    <p class="small">Detected department: <strong id="detectedDeptLabel">—</strong></p>
+    <div id="hospitalList" style="max-width:980px;margin:12px auto;text-align:left"></div>
+    <div style="margin-top:12px">
+      <button class="btn-back" onclick="showScreen('screen-symptom')">Back</button>
+      <button class="btn-back" onclick="showScreen('screen-dashboard')">Dashboard</button>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="screen-map" class="screen">
+    <h2>Map & Directions</h2>
+    <p id="mapInfo" class="small"></p>
+    <div id="map"></div>
+    <div style="margin-top:12px">
+      <button class="btn-back" onclick="showScreen('screen-doctors')">Back</button>
+      <button class="btn-back" onclick="showScreen('screen-dashboard')">Dashboard</button>
+    </div>
+  </div>
+
+  <!-- PRESCRIPTION UPLOAD -->
+  <div id="screen-prescription" class="screen">
+    <h2>Upload Prescription</h2>
+    <form id="uploadForm" onsubmit="savePrescription(event)">
+      <input id="fileInput" type="file" accept="image/*"><br>
+      <select id="departmentSelect" required>
+        <option value="">-- Select Department --</option>
+        <option>General</option><option>Cardiology</option><option>Dental</option>
+        <option>Dermatology</option><option>ENT</option><option>Neurology</option>
+        <option>Orthopedics</option><option>Pediatrics</option><option>Gynecology</option>
+      </select><br>
+      <input id="medicineName" placeholder="Medicine name" required><br>
+      <button class="btn-primary" type="submit">Upload & Save</button>
+    </form>
+    <div style="margin-top:8px">
+      <label for="cameraQuick" class="btn-primary" style="display:inline-block;cursor:pointer">📷 Quick Camera</label>
+      <input id="cameraQuick" type="file" accept="image/*" capture="environment" style="display:none" onchange="cameraHandler(event)">
+    </div>
+    <div style="margin-top:12px"><button class="btn-back" onclick="showScreen('screen-dashboard')">Back</button></div>
+  </div>
+
+  <!-- REMINDERS -->
+  <div id="screen-reminders" class="screen">
+    <h2>Set Reminders</h2>
+    <input id="remMedicine" placeholder="Medicine name"><br>
+    <div><input id="remTime" type="time" style="width:160px;">
+      <button class="btn-primary" onclick="addTime()">Add Time</button></div>
+    <div class="times" id="timesContainer"></div>
+    <div><input id="remDays" type="number" min="1" placeholder="Duration (days)" value="1">
+      <button class="btn-primary" onclick="saveReminder()">Save Reminder</button>
+      <button class="btn-back" onclick="showScreen('screen-dashboard')">Back</button></div>
+    <h3>Active Reminders</h3>
+    <div id="remList" style="max-width:820px;margin:8px auto;text-align:left"></div>
+  </div>
+
+  <!-- SAVED PRESCRIPTIONS -->
+  <div id="screen-saved" class="screen">
+    <h2>Saved Prescriptions</h2>
+    <div id="deptButtons" style="margin-bottom:10px"></div>
+    <div id="prescriptionList" class="gallery"></div>
+    <div><button class="btn-back" onclick="showScreen('screen-dashboard')">Back</button></div>
+  </div>
+
+  <!-- ACCOUNT -->
+  <div id="screen-account" class="screen">
+    <h2>Account Settings</h2>
+    <div id="accountInfo"></div>
+    <div><button class="btn-ghost" onclick="logout()">Logout</button>
+      <button class="btn-back" onclick="confirmDeleteAccount()">Delete Account</button>
+      <button class="btn-back" onclick="showScreen('screen-dashboard')">Back</button></div>
+  </div>
+
+  <!-- EDIT POPUP -->
+  <div id="editPopup" class="popup hidden"><div class="content">
+    <h3>Edit Prescription</h3>
+    <form onsubmit="saveEditedPrescription(event)">
+      <input id="editId" type="hidden">
+      <input id="editMedicine" placeholder="Medicine name" required><br>
+      <select id="editDept"><option>General</option><option>Cardiology</option><option>Dental</option>
+        <option>Dermatology</option><option>ENT</option><option>Neurology</option>
+        <option>Orthopedics</option><option>Pediatrics</option><option>Gynecology</option></select><br>
+      <div style="text-align:right">
+        <button class="btn-primary" type="submit">Save</button>
+        <button class="btn-back" type="button" onclick="closeEdit()">Cancel</button></div>
+    </form></div></div>
+
+  <!-- VOICE POPUP -->
+  <div id="voicePopup" class="popup hidden"><div class="content">
+    <h3 id="voiceTitle">Reminder</h3><p id="voiceMsg"></p>
+    <div style="text-align:right">
+      <button class="btn-primary" onclick="snooze5()">Snooze 5 min</button>
+      <button class="btn-back" onclick="closeVoice()">Close</button></div></div></div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ---------- utilities & state ---------- */
+const USERS_KEY='ma_users_v2',PRES_KEY='ma_pres_v2',REM_KEY='ma_rem_v2',LOGGED_KEY='ma_logged_v2',ISLOG_KEY='ma_islog_v2';
+let users=JSON.parse(localStorage.getItem(USERS_KEY)||'[]'),prescriptions=JSON.parse(localStorage.getItem(PRES_KEY)||'[]'),reminders=JSON.parse(localStorage.getItem(REM_KEY)||'[]');
+let leafletMap=null,routeLayer=null,lastHospitalResults=[];
+function escapeHtml(s){return String(s||'').replace(/[&<>"'`=\/]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D'}[c]));}
+function haversineKm(a,b,c,d){const toR=x=>x*Math.PI/180,R=6371;const dL=toR(c-a),dLo=toR(d-b);const A=Math.sin(dL/2)**2+Math.cos(toR(a))*Math.cos(toR(c))*Math.sin(dLo/2)**2;return 2*R*Math.atan2(Math.sqrt(A),Math.sqrt(1-A));}
+/* ---------- navigation ---------- */
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id)?.classList.add('active');if(id==='screen-dashboard')loadDashboard();}
+document.addEventListener('DOMContentLoaded',()=>{if(localStorage.getItem(ISLOG_KEY)==='true')showScreen('screen-dashboard');else showScreen('screen-welcome');startReminderChecker();});
+/* ---------- auth ---------- */
+function handleSignup(e){e.preventDefault();const n=suFull.value.trim(),em=suEmail.value.toLowerCase(),p=suPass.value,c=suConf.value;if(p!==c)return alert('Passwords mismatch');if(users.some(u=>u.email===em))return alert('Exists');const u={id:Date.now(),fullName:n,email:em,password:p};users.push(u);localStorage.setItem(USERS_KEY,JSON.stringify(users));localStorage.setItem(LOGGED_KEY,JSON.stringify(u));localStorage.setItem(ISLOG_KEY,'true');showScreen('screen-dashboard');}
+function handleLogin(e){e.preventDefault();const em=liEmail.value.toLowerCase(),p=liPass.value;const u=users.find(x=>x.email===em&&x.password===p);if(!u)return alert('Invalid');localStorage.setItem(LOGGED_KEY,JSON.stringify(u));localStorage.setItem(ISLOG_KEY,'true');showScreen('screen-dashboard');}
+function logout(){localStorage.setItem(ISLOG_KEY,'false');localStorage.removeItem(LOGGED_KEY);showScreen('screen-login');}
+function loadDashboard(){const u=JSON.parse(localStorage.getItem(LOGGED_KEY)||'null');dashUser.textContent=u?`👋 ${u.fullName} (${u.email})`:'';}
+function confirmDeleteAccount(){if(!confirm('Delete account permanently?'))return;localStorage.clear();location.reload();}
+
+/* ---------- prescriptions ---------- */
+function savePrescription(e){e.preventDefault();const f=fileInput.files[0];const d=departmentSelect.value,m=medicineName.value.trim();if(!d||!m)return alert('Fill all');const reader=new FileReader();reader.onloadend=()=>{prescriptions.push({id:Date.now(),dept:d,med:m,img:reader.result});localStorage.setItem(PRES_KEY,JSON.stringify(prescriptions));showScreen('screen-saved');renderPrescriptions();};if(f)reader.readAsDataURL(f);else reader.onloadend();}
+function renderPrescriptions(){prescriptions=JSON.parse(localStorage.getItem(PRES_KEY)||'[]');const db=document.getElementById('deptButtons'),pl=document.getElementById('prescriptionList');const depts=[...new Set(prescriptions.map(p=>p.dept))];db.innerHTML=depts.map(d=>`<button class="btn-primary" onclick="showDept('${d}')">${d}</button>`).join(' ');if(depts.length)showDept(depts[0]);else pl.innerHTML='<p>No data</p>';}
+function showDept(d){const pl=document.getElementById('prescriptionList');const items=prescriptions.filter(p=>p.dept===d);pl.innerHTML=items.map(p=>`<div class="gallery-item"><img src="${p.img||''}"><div style="padding:8px"><b>${p.med}</b><div class="small">${p.dept}</div><div><button class="btn-primary" onclick="openEdit(${p.id})">Edit</button><button class="btn-back" onclick="deletePrescription(${p.id})">Delete</button></div></div></div>`).join('');}
+function openEdit(id){const p=prescriptions.find(x=>x.id===id);editId.value=id;editMedicine.value=p.med;editDept.value=p.dept;editPopup.classList.remove('hidden');}
+function closeEdit(){editPopup.classList.add('hidden');}
+function saveEditedPrescription(e){e.preventDefault();const id=+editId.value,m=editMedicine.value,d=editDept.value;prescriptions=prescriptions.map(p=>p.id===id?{...p,med:m,dept:d}:p);localStorage.setItem(PRES_KEY,JSON.stringify(prescriptions));closeEdit();renderPrescriptions();}
+function deletePrescription(id){if(!confirm('Delete?'))return;prescriptions=prescriptions.filter(p=>p.id!==id);localStorage.setItem(PRES_KEY,JSON.stringify(prescriptions));renderPrescriptions();}
+function cameraHandler(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onloadend=()=>{localStorage.setItem('tempImg',r.result);showScreen('screen-prescription');};r.readAsDataURL(f);}
+
+/* ---------- reminders ---------- */
+function addTime(){const t=remTime.value;if(!t)return;const c=document.getElementById('timesContainer');if([...c.querySelectorAll('span')].some(s=>s.textContent===t))return;const pill=document.createElement('div');pill.className='time-pill';pill.innerHTML=`<span>${t}</span><button onclick="this.parentNode.remove()">✕</button>`;c.append(pill);}
+function saveReminder(){const med=remMedicine.value.trim();if(!med)return;const times=[...document.querySelectorAll('#timesContainer span')].map(s=>s.textContent);if(!times.length)return alert('Add times');reminders.push({id:Date.now(),med,times,days:+remDays.value});localStorage.setItem(REM_KEY,JSON.stringify(reminders));renderReminders();}
+function renderReminders(){const c=remList;c.innerHTML=reminders.map(r=>`<div class='hospital-row'><div><b>${r.med}</b><div class='small'>${r.times.join(', ')} • ${r.days} days</div></div><div><button class='btn-primary' onclick='triggerReminder(${r.id})'>Trigger</button><button class='btn-back' onclick='removeReminder(${r.id})'>Del</button></div></div>`).join('')||'<p>No reminders</p>';}
+function removeReminder(id){reminders=reminders.filter(r=>r.id!==id);localStorage.setItem(REM_KEY,JSON.stringify(reminders));renderReminders();}
+function startReminderChecker(){setInterval(checkReminders,20000);}
+function checkReminders(){const n=new Date();const hh=n.getHours().toString().padStart(2,'0'),mm=n.getMinutes().toString().padStart(2,'0'),now=`${hh}:${mm}`;reminders.forEach(r=>{if(r.times.includes(now))triggerReminder(r.id);});}
+function triggerReminder(id){const r=reminders.find(x=>x.id===id);voiceMsg.textContent=`Time to take ${r.med}`;voicePopup.classList.remove('hidden');speak(`It's time to take ${r.med}`);}
+function snooze5(){const msg=voiceMsg.textContent;voicePopup.classList.add('hidden');setTimeout(()=>speak(msg),5*60*1000);}
+function closeVoice(){voicePopup.classList.add('hidden');}
+function speak(t){if(!('speechSynthesis'in window))return;const u=new SpeechSynthesisUtterance(t);u.lang='en-US';speechSynthesis.speak(u);}
+
+/* ---------- symptom → dept → hospitals ---------- */
+function analyzeSymptoms(){
+  const txt=symptomInput.value.toLowerCase();
+  if(!txt)return alert('Enter symptoms');
+  const map={cardiology:['heart','chest','bp','breath'],dental:['tooth','gum','teeth','mouth'],dermatology:['skin','rash','itch'],ent:['ear','nose','throat'],gynecology:['period','preg','uterus'],neurology:['brain','headache','nerve'],orthopedics:['bone','joint','fracture'],pediatrics:['child','baby'],general:['fever','cough','pain']};
+  let dept='General';
+  for(const[k,ws]of Object.entries(map)){if(ws.some(w=>txt.includes(w))){dept=k[0].toUpperCase()+k.slice(1);break;}}
+  document.getElementById('symptomResult').textContent=`Suggested Department: ${dept}`;
+  document.getElementById('detectedDeptLabel').textContent=dept;
+  showScreen('screen-doctors');
+  findHospitals(dept);
+}
+function startSymptomVoice(){
+  if(!('webkitSpeechRecognition'in window)){alert('Not supported');return;}
+  const r=new webkitSpeechRecognition();r.lang='en-US';r.onresult=e=>{symptomInput.value=e.results[0][0].transcript;};r.start();
+}
+function findHospitals(dept){
+  const container=document.getElementById('hospitalList');container.innerHTML='<p>Finding nearby hospitals...</p>';
+  if(!navigator.geolocation)return alert('Allow location');
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const lat=pos.coords.latitude,lon=pos.coords.longitude;
+    const rev=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`).then(r=>r.json());
+    const city=rev.address.city||rev.address.town||rev.address.village||rev.address.state||'';
+    const data=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&q=hospital+${encodeURIComponent(city)}&limit=100`).then(r=>r.json());
+    const filtered=data.filter(h=>h.display_name&&(h.display_name.toLowerCase().includes('hospital')||h.display_name.toLowerCase().includes('clinic')||h.display_name.toLowerCase().includes('medical')));
+    const enriched=filtered.map(h=>{const d=haversineKm(lat,lon,h.lat,h.lon);const sp=detectSpecialty(h.display_name);return {...h,dist:d,spec:sp};}).filter(h=>h.dist<=20);
+    enriched.sort((a,b)=>a.dist-b.dist);
+    lastHospitalResults=enriched;
+    container.innerHTML=enriched.map((h,i)=>`
+      <div class='hospital-row'>
+        <div class='hospital-info'><b>${escapeHtml(h.display_name.split(',')[0])}</b><span class='tag' style='background:#e9f6ff;color:#007bff'>${h.spec}</span><div class='small'>📏 ${h.dist.toFixed(1)} km away</div></div>
+        <div class='hospital-actions'><button class='btn-primary' onclick='openMap(${i})'>Map</button></div>
+      </div>`).join('')||'<p>No hospitals found nearby</p>';
+  });
+}
+function detectSpecialty(name){const n=name.toLowerCase();if(n.includes('heart')||n.includes('cardio'))return'Cardiology';if(n.includes('dental')||n.includes('tooth'))return'Dental';if(n.includes('skin')||n.includes('derma'))return'Dermatology';if(n.includes('ortho'))return'Orthopedics';if(n.includes('ent'))return'ENT';if(n.includes('neuro'))return'Neurology';if(n.includes('child')||n.includes('pediatric'))return'Pediatrics';if(n.includes('women')||n.includes('maternity'))return'Gynecology';return'General';}
+function openMap(i){
+  const h=lastHospitalResults[i];if(!h)return;
+  showScreen('screen-map');
+  if(leafletMap){try{leafletMap.remove();}catch(e){}}
+  leafletMap=L.map('map').setView([h.lat,h.lon],14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(leafletMap);
+  L.marker([h.lat,h.lon]).addTo(leafletMap).bindPopup(h.display_name).openPopup();
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      const uLat=pos.coords.latitude,uLon=pos.coords.longitude;
+      L.marker([uLat,uLon]).addTo(leafletMap).bindPopup('You are here');
+      const url=`https://router.project-osrm.org/route/v1/driving/${uLon},${uLat};${h.lon},${h.lat}?overview=full&geometries=geojson`;
+      const r=await fetch(url).then(x=>x.json());
+      if(r.routes&&r.routes[0]){const coords=r.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);routeLayer=L.polyline(coords,{color:'blue',weight:5}).addTo(leafletMap);leafletMap.fitBounds(routeLayer.getBounds());const dist=r.routes[0].distance/1000,dur=r.routes[0].duration/60;mapInfo.textContent=`${h.display_name.split(',')[0]} — ${dist.toFixed(1)} km (~${dur.toFixed(0)} min)`;}
+    });
+  }
+}
+</script>
+</body>
+</html>
